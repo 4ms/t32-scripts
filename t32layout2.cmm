@@ -1,0 +1,68 @@
+// t32 Fri Mar 18 12:20:43 2022
+
+B::
+
+TOOLBAR   ON
+STATUSBAR ON
+FramePOS 6.625,1.6667,,,Maximized
+WinPAGE.RESet
+
+WinPAGE.Create P000
+WinCLEAR
+
+WinPOS 19.75 8.4667 114. 25. 14. 0. W013
+wr.we.PLIST
+
+WinPOS 0.0 0.0 51. 5. 16. 1. W010
+ws.Data.dump (0xc0000000) /DIALOG
+
+WinPOS 107.25 0.0 116. 7. 26. 1. W008
+WinTABS 13. 16. 0. 0. 0. 0. 0. 0. 0. 46.
+ws.Break.List
+
+WinPOS 0.0 66.2 120. 13. 6. 1. W004
+WinTABS 32.
+ws.Trace.List
+
+WinPOS 223.75 3.9333 70. 26. 16. 1. W009
+Data.dump r(R3) /DIALOG
+
+WinPOS 0.0 10.467 51. 10. 0. 0. W006
+ws.Register.view
+
+WinPOS 107.5 39.933 115. 46. 0. 0. W005
+ws.Var.Ref
+WinPAN 0. 5.
+
+WinPOS 46.625 0.0 67. 19. 5. 0. W002
+ws.Frame.view
+
+WinPOS 107.5 11.6 115. 27. 0. 0. W003
+ws.Var.Watch
+
+VAR.ADDWATCH &Djembe2_yml
+VAR.ADDWATCH &Djembe4_yml
+VAR.ADDWATCH &Djembe2_yml_len
+VAR.ADDWATCH fn
+VAR.ADDWATCH lfn
+
+WinPOS -0.125 22.867 121. 43. 16. 1. W001
+WinTABS 10. 25. 25.
+ws.List.auto
+
+WinPOS 240.75 60.533 80. 5. 16. 1. W007
+WinTABS 10. 10. 25.
+ws.List \\main
+
+WinPOS 224.63 71.333 88. 8. 0. 0. W000
+CD.PEDIT /Users/design/4ms/stm32/meta-module/firmware/LOCAL/mm-a7-t32.cmm
+
+WinPAGE.Create P001
+WinCLEAR
+
+WinPOS 115.0 2.4667 139. 55. 0. 0. W011
+CD.PEDIT /Users/design/4ms/stm32/meta-module/firmware/flashing/t32-qspi-flash.cmm
+
+WinPAGE.select P000
+
+ENDDO

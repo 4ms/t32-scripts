@@ -1,0 +1,243 @@
+; --------------------------------------------------------------------------------
+; @Title: Flash declaration for ST STM32F7xx internal flash
+; @Description:
+;   Script arguments:
+;
+;    DO stm32f7xx [PREPAREONLY] [CPU=<cpu>] [DUALPORT=0|1]
+;
+;      PREPAREONLY only declares flash but does not execute flash programming
+;
+;      CPU=<cpu> selects CPU derivative <cpu>
+;
+;      DUALPORT=0|1 default value is 0 (disabled).
+;
+;   Example:
+;
+;   DO ~~/demo/arm/flash/stm32f7xx CPU=STM32F756NG PREPAREONLY
+;
+;   List of STM32F7xx derivatives and their configuration:
+;
+;     CPU-Type        Flash size   Page size    SRAM size
+;                       [Byte]      [Byte]        [Byte]
+; --------------------------------------------------------------------------------
+;   STM32F7x0:
+;     -STM32F730x8       0x10000      -          0x40000  x = R/V/Z/I
+;     -STM32F750x8       0x10000      -          0x50000  x = V/Z/N
+;   STM32F7x2:
+;     STM32F722xC        0x40000      -          0x40000  x = R/V/Z/I
+;     STM32F722xE        0x80000      -          0x40000  x = R/V/Z/I
+;     STM32F732xE        0x80000      -          0x40000  x = R/V/Z/I
+;   STM32F7x3:
+;     STM32F723xC        0x40000      -          0x40000  x = Z/I
+;     STM32F723xE        0x80000      -          0x40000  x = V/Z/I
+;     STM32F733xE        0x80000      -          0x40000  x = V/Z/I
+;   STM32F7x5:
+;     STM32F745xE        0x80000     0x800       0x50000  x = V/Z/I
+;     STM32F745xG       0x100000     0x800       0x50000  x = V/Z/I
+;     STM32F765xG       0x100000     0x800       0x80000  x = V/Z/I/B/N
+;     STM32F765xI       0x200000     0x800       0x80000  x = V/Z/I/B/N
+;   STM32F7x6:
+;     STM32F746xE        0x80000     0x800       0x50000  x = V/Z/I/B/N
+;     STM32F746xG       0x100000     0x800       0x50000  x = V/Z/I/B/N
+;     STM32F756xG       0x100000     0x800       0x50000  x = V/Z/I/B/N
+;   STM32F7x7:
+;     STM32F767xG       0x100000     0x800       0x80000  x = V/Z/I/B/N
+;     STM32F767xI       0x200000     0x800       0x80000  x = V/Z/I/B/N
+;     STM32F777xI       0x200000     0x800       0x80000  x = V/Z/I/B/N
+;   STM32F7x8/STM32F7x9:
+;     STM32F769xG       0x100000     0x800       0x80000  x = I/B/N
+;     STM32F769xI       0x200000     0x800       0x80000  x = A/I/B/N
+;     STM32F778AI       0x200000     0x800       0x80000  x = A
+;     STM32F779xI       0x200000     0x800       0x80000  x = A/I/B/N
+;
+; @Author: AME,PHI
+; @Chip: STM32F72* STM32F73* STM32F74* STM32F75* STM32F76* STM32F77*
+; @Copyright: (C) 1989-2022 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; --------------------------------------------------------------------------------
+; $Rev: 10516 $
+; $Id: stm32f7xx.cmm 10516 2022-02-02 11:39:30Z bschroefel $
+
+
+PRIVATE &parameters
+ENTRY %LINE &parameters
+
+PRIVATE &param_prepareonly &param_cpu &param_dualport
+&param_prepareonly=(STRing.SCAN(STRing.UPpeR("&parameters"),"PREPAREONLY",0)!=-1)
+&param_cpu=STRing.SCANAndExtract(STRing.UPpeR("&parameters"),"CPU=","")
+&param_dualport=STRing.SCANAndExtract(STRing.UPpeR("&parameters"),"DUALPORT=","0")
+&param_file=STRing.SCANAndExtract(STRing.UPpeR("&parameters"),"FILE=","*")
+
+; ------------------------------------------------------------------------------
+; Setup CPU
+
+IF SYStem.MODE()<5
+(
+  SYStem.RESet
+
+  IF "&param_cpu"!=""
+    SYStem.CPU &param_cpu
+  IF !CPUIS(STM32F7*)
+    SYStem.CPU STM32F7*
+
+  SYStem.CONFIG DEBUGPORTTYPE SWD
+
+  SYStem.Up
+)
+
+; Disable Watchdog WWDG (only window watchdog can be disabled, iwdg must be reloaded)
+Data.Set AD:0x40002C00  %Long Data.Long(AD:0x40002C00)&~0x80
+
+; ------------------------------------------------------------------------------
+; Flash declaration
+
+FLASH.RESet
+GOSUB FlashDeclaration "&param_dualport"
+
+; Flash script ends here if called with parameter PREPAREONLY
+IF &param_prepareonly
+  ENDDO PREPAREDONE
+
+; -------------------------------------------------------------------------------
+; Flash programming example
+
+;DIALOG.YESNO "Program flash memory?"
+;LOCAL &progflash
+;ENTRY &progflash
+;IF &progflash
+;(
+  FLASH.ReProgram.ALL
+  Data.LOAD.auto &param_file
+  FLASH.ReProgram.off
+
+  ; Reset device
+  SYStem.Down
+  SYStem.Up
+;)
+
+ENDDO
+
+
+; --------------------------------------------------------------------------------
+; Flash declaration depending on selected CPU
+
+FlashDeclaration:
+(
+  PRIVATE &FlashSize &FlashDriver &SingleBank &FoundationLine
+  PARAMETERS &DualPort
+
+  IF CPUIS("STM32F730?8")||CPUIS("STM32F750?8")
+  (
+    &FlashSize=0x10000
+  )
+  ELSE CPUIS("STM32F7???C")
+  (
+    &FlashSize=0x40000
+  )
+  ELSE IF CPUIS("STM32F7???E")
+  (
+    &FlashSize=0x80000
+  )
+  ELSE IF CPUIS("STM32F7???G")
+  (
+    &FlashSize=0x100000
+  )
+  ELSE IF CPUIS("STM32F7???I")
+  (
+    &FlashSize=0x200000
+  )
+  ELSE
+  (
+    PRINT %ERROR "FLASH size of CPU type is unknown"
+    ENDDO
+  )
+
+  &SingleBank=TRUE()
+  &FoundationLine=FALSE()
+  IF CPUIS("STM32F74*")||CPUIS("STM32F75*")
+  (
+    &FlashDriver="stm32f7.bin"
+  )
+  ELSE IF CPUIS("STM32F76*")||CPUIS("STM32F77*")
+  (
+    &FlashDriver="stm32f76x.bin"
+    &SingleBank=(Data.Long(C:0x1FFF0008)&0x2000)==0x2000
+  )
+  ELSE IF CPUIS("STM32F72*")||CPUIS("STM32F73*")
+  (
+    &FlashDriver="stm32f72x.bin"
+    &FoundationLine=TRUE()
+  )
+  ELSE
+  (
+    PRINT %ERROR "FLASH driver for CPU type is not defined"
+    ENDDO
+  )
+
+  IF &SingleBank&&!&FoundationLine
+  (
+    IF &FlashSize>=0x10000
+    (
+      FLASH.Create 1. 0x08000000--0x0800FFFF 0x8000 TARGET Byte 0. /AutoInc   ; sector 0..1
+    )
+    IF &FlashSize>=0x80000
+    (
+      FLASH.Create 1. 0x08010000--0x0801FFFF  0x8000 TARGET Byte 2. /AutoInc   ; sector 2..3
+      FLASH.Create 1. 0x08020000--0x0803FFFF 0x20000 TARGET Byte 4.
+      FLASH.Create 1. 0x08040000--0x0807FFFF 0x40000 TARGET Byte 5.
+    )
+    IF &FlashSize>=0x100000
+    (
+      FLASH.Create 1. 0x08080000--0x080FFFFF 0x40000 TARGET Byte 6. /AutoInc   ; sector 6..7
+    )
+    IF &FlashSize>=0x200000
+    (
+      FLASH.Create 1. 0x08100000--0x081FFFFF 0x40000 TARGET Byte 8. /AutoInc   ; sector 8..11
+    )
+  )
+  ELSE IF !&SingleBank&&!&FoundationLine
+  (
+    IF &FlashSize==0x100000
+    (
+      FLASH.Create 1. 0x08000000--0x0800FFFF  0x4000 TARGET Byte  0. /AutoInc   ; sector 0..3
+      FLASH.Create 1. 0x08010000--0x0801FFFF 0x10000 TARGET Byte  4.
+      FLASH.Create 1. 0x08020000--0x0807FFFF 0x20000 TARGET Byte  5. /AutoInc   ; sector 5..7
+      FLASH.Create 2. 0x08080000--0x0808FFFF  0x4000 TARGET Byte 12. /AutoInc   ; sector 12..15
+      FLASH.Create 2. 0x08090000--0x0809FFFF 0x10000 TARGET Byte 16.
+      FLASH.Create 2. 0x080A0000--0x080FFFFF 0x20000 TARGET Byte 17. /AutoInc   ; sector 17..19
+    )
+    IF &FlashSize==0x200000
+    (
+      FLASH.Create 1. 0x08000000--0x0800FFFF  0x4000 TARGET Byte  0. /AutoInc   ; sector 0..3
+      FLASH.Create 1. 0x08010000--0x0801FFFF 0x10000 TARGET Byte  4.
+      FLASH.Create 1. 0x08020000--0x080FFFFF 0x20000 TARGET Byte  5. /AutoInc   ; sector 5..11
+      FLASH.Create 2. 0x08100000--0x0810FFFF  0x4000 TARGET Byte 12. /AutoInc   ; sector 12..15
+      FLASH.Create 2. 0x08110000--0x0811FFFF 0x10000 TARGET Byte 16.
+      FLASH.Create 2. 0x08120000--0x081FFFFF 0x20000 TARGET Byte 17. /AutoInc   ; sector 17..23
+    )
+  )
+  ELSE IF &FoundationLine
+  (
+    IF &FlashSize==0x10000
+    (
+      FLASH.Create 1. 0x08000000--0x0800FFFF 0x4000 TARGET Byte 0. /AutoInc   ; sector 0..3
+    )
+    IF &FlashSize>=0x40000
+    (
+      FLASH.Create 1. 0x08000000--0x0800FFFF  0x4000 TARGET Byte 0. /AutoInc   ; sector 0..3
+      FLASH.Create 1. 0x08010000--0x0801FFFF 0x10000 TARGET Byte 4.
+      FLASH.Create 1. 0x08020000--0x0803FFFF 0x20000 TARGET Byte 5.
+    )
+    IF &FlashSize>=0x80000
+    (
+      FLASH.Create 1. 0x08040000--0x0807FFFF 0x20000 TARGET Byte 6. /AutoInc   ; sector 6..7
+    )
+  )
+  FLASH.CreateALIAS 0x00200000++(&FlashSize-1.) 0x08000000
+
+  IF "&DualPort"=="0"
+    FLASH.TARGET 0x20000000 0x20001000 0x4000 ~~/demo/arm/flash/byte/&FlashDriver
+  ELSE
+    FLASH.TARGET 0x20000000 EAHB:0x20001000 0x4000 ~~/demo/arm/flash/byte/&FlashDriver /DualPort
+
+  RETURN
+)
